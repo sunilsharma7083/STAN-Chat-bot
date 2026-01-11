@@ -292,10 +292,6 @@ const ChatInterface = forwardRef(({ userId, sessionId, onMessageSent, empathyMod
           <span className="send-icon">➤</span>
         </button>
       </div>
-
-      <div className="footer-note">
-        Made with Replit ⚡
-      </div>
     </div>
   );
 });
