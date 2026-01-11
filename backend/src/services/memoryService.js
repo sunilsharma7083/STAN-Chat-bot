@@ -151,7 +151,7 @@ class MemoryService {
 
   // Build memory context for AI in a natural way
   buildMemoryContext(user, conversationHistory) {
-    let context = '';
+    let context = '📝 MEMORY BANK - What you know about this person:\n\n';
     
     // Build natural profile description
     const profile = user.profile;
@@ -159,77 +159,71 @@ class MemoryService {
     const missingInfo = [];
     
     if (profile.name) {
-      profileParts.push(`Their name is ${profile.name}`);
+      profileParts.push(`✅ Name: ${profile.name}`);
     } else {
-      missingInfo.push('name');
+      missingInfo.push('name (try to ask naturally in conversation)');
     }
     
     if (profile.interests && profile.interests.length > 0) {
-      if (profile.interests.length === 1) {
-        profileParts.push(`they're into ${profile.interests[0]}`);
-      } else if (profile.interests.length === 2) {
-        profileParts.push(`they're into ${profile.interests[0]} and ${profile.interests[1]}`);
-      } else {
-        const lastInterest = profile.interests[profile.interests.length - 1];
-        const otherInterests = profile.interests.slice(0, -1).join(', ');
-        profileParts.push(`they're into ${otherInterests}, and ${lastInterest}`);
-      }
+      profileParts.push(`✅ Interests: ${profile.interests.join(', ')}`);
+    } else {
+      missingInfo.push('interests/hobbies');
     }
     
     if (profile.location) {
-      profileParts.push(`they live in ${profile.location}`);
-    } else {
-      missingInfo.push('location');
+      profileParts.push(`✅ Location: ${profile.location}`);
     }
     
     if (profile.favoriteColor) {
-      profileParts.push(`their favorite color is ${profile.favoriteColor}`);
+      profileParts.push(`✅ Favorite Color: ${profile.favoriteColor}`);
     } else if (profile.color) {
-      profileParts.push(`they mentioned liking the color ${profile.color}`);
-    } else {
-      missingInfo.push('color preference');
+      profileParts.push(`✅ Color they like: ${profile.color}`);
     }
     
+    if (profile.occupation) {
+      profileParts.push(`✅ Occupation: ${profile.occupation}`);
+    }
+    
+    // Add what we know
     if (profileParts.length > 0) {
-      context += profileParts.join(', ') + '.\n';
+      context += profileParts.join('\n') + '\n\n';
     } else {
-      context += "You're just getting to know them.\n";
+      context += "❌ Nothing yet - this is your first conversation!\n\n";
     }
     
-    // Tell AI what information is missing so it can naturally ask
+    // Tell AI what information is missing
     if (missingInfo.length > 0) {
-      context += `\n⚠️ YOU DON'T KNOW YET: ${missingInfo.join(', ')}\n`;
-      context += `💡 Try to naturally discover this during conversation (but don't ask all at once!):\n`;
-      missingInfo.forEach(info => {
-        if (info === 'name') {
-          context += `- Ask their name early in the conversation\n`;
-        } else if (info === 'location') {
-          context += `- Ask where they're from when it feels natural\n`;
-        } else if (info === 'color preference') {
-          context += `- Ask about favorite colors casually during chat\n`;
-        }
-      });
+      context += `🔍 Still don't know: ${missingInfo.join(', ')}\n`;
+      context += `💡 TIP: Ask about these naturally when it fits the conversation\n\n`;
+    }
+    
+    // Add recent conversation summary
+    if (conversationHistory && conversationHistory.length > 0) {
+      context += `💬 RECENT CONVERSATION (last ${conversationHistory.length} messages):\n`;
+      context += `Use this to understand context and NEVER repeat yourself!\n\n`;
+    } else {
+      context += `💬 This is the START of a new conversation!\n\n`;
     }
     
     // Add recent facts naturally
     if (user.memory.shortTermFacts && user.memory.shortTermFacts.length > 0) {
       const recentFacts = user.memory.shortTermFacts.slice(-5);
-      context += `\nThings they've mentioned recently:\n${recentFacts.map(fact => `- ${fact}`).join('\n')}\n`;
+      context += `📌 Recent things they mentioned:\n${recentFacts.map(fact => `- ${fact}`).join('\n')}\n\n`;
     }
     
     // Add conversation history summary
     if (user.memory.longTermSummary) {
-      context += `\nWhat you know from past conversations: ${user.memory.longTermSummary}\n`;
+      context += `📖 From past conversations: ${user.memory.longTermSummary}\n\n`;
     }
     
     // Add conversation count for context
     const totalConversations = conversationHistory.length;
     if (totalConversations === 0) {
-      context += '\nThis is your first conversation with them - make them feel welcome and get to know them!\n';
+      context += '🆕 This is your FIRST conversation - make them feel welcome!\n';
     } else if (totalConversations < 5) {
-      context += '\nYou\'re still getting to know each other - be curious and warm!\n';
+      context += '🤝 Still getting to know each other - be curious and warm!\n';
     } else {
-      context += '\nYou\'ve had many conversations - they feel like a friend now!\n';
+      context += '👥 You\'ve chatted a lot - they feel like a friend now!\n';
     }
     
     return context;

@@ -15,92 +15,121 @@ class AIService {
       const user = await memoryService.getUserProfile(userId);
       console.log('✅ Got user profile');
       
-      // 2. Extract information from user message
+      // 2. Get conversation history FIRST (to prevent repeating)
+      const conversationHistory = await memoryService.getConversationHistory(
+        userId, 
+        sessionId, 
+        15 // Last 15 messages for better context
+      );
+      console.log(`✅ Got conversation history: ${conversationHistory.length} messages`);
+      
+      // 3. Check if last response was the same (prevent infinite loops)
+      const lastAssistantMessage = conversationHistory
+        .filter(msg => msg.role === 'assistant')
+        .slice(-1)[0];
+      
+      if (lastAssistantMessage) {
+        console.log('📝 Last response:', lastAssistantMessage.content);
+      }
+      
+      // 4. Extract information from user message
       const extracted = memoryService.extractInformation(userMessage);
       console.log('✅ Extracted info:', extracted);
       
-      // 3. Update user profile with extracted info
+      // 5. Update user profile with extracted info
       if (Object.keys(extracted).length > 0) {
         await memoryService.updateUserProfile(userId, extracted);
-        console.log('✅ Updated user profile');
+        console.log('✅ Updated user profile with new info');
       }
       
-      // 4. Detect emotion from user message (AI-enhanced)
+      // 6. Detect emotion from user message (AI-enhanced)
       console.log('🔍 Detecting emotion...');
       const { emotion, intensity, confidence } = await emotionService.detectEmotion(userMessage);
       console.log(`💭 Detected emotion: ${emotion} (${intensity}) - confidence: ${confidence || 'local'}`);
       
-      // 5. Get conversation history
-      const conversationHistory = await memoryService.getConversationHistory(
-        userId, 
-        sessionId, 
-        10 // Last 10 messages
-      );
+      // 7. Build memory context (use updated profile)
+      const updatedUser = await memoryService.getUserProfile(userId);
+      const memoryContext = memoryService.buildMemoryContext(updatedUser, conversationHistory);
       
-      // 6. Build memory context
-      const memoryContext = memoryService.buildMemoryContext(user, conversationHistory);
-      
-      // 7. Build emotional context
+      // 8. Build emotional context
       const emotionalContext = emotionService.buildEmotionalContext(emotion, intensity);
       
-      // 8. Build system instruction
+      // 9. Build system instruction with memory and emotion
       const systemInstruction = promptBuilder.buildSystemInstruction(
         memoryContext, 
         emotionalContext
       );
       
-      // 9. Build full prompt
-      let prompt = promptBuilder.buildPrompt(
-        systemInstruction,
-        conversationHistory,
-        userMessage
-      );
-      
-      // 10. Optimize prompt to reduce tokens
-      prompt = promptBuilder.optimizePrompt(prompt);
-      
-      // 11. Generate response using Groq API directly
+      // 10. Build messages for API with conversation history
       const messages = [
         {
           role: "system",
           content: systemInstruction
         },
+        // Add conversation history for context
         ...conversationHistory.map(msg => ({
           role: msg.role === 'user' ? 'user' : 'assistant',
           content: msg.content
         })),
+        // Add current message
         {
           role: "user",
           content: userMessage
         }
       ];
       
-      console.log('🚀 Calling Groq API...');
-      console.log('📨 Messages sent:', JSON.stringify(messages, null, 2));
+      console.log('🚀 Calling Groq API with full context...');
+      console.log(`📨 Sending ${messages.length} messages (${conversationHistory.length} history + current)`);
       
+      // 11. Generate response using Groq API
       const completion = await groq.chat.completions.create({
         model: MODEL,
         messages: messages,
-        temperature: 0.7,
+        temperature: 0.8, // Higher temperature for more varied responses
         max_tokens: 1024,
-        top_p: 0.9,
+        top_p: 0.95, // Higher for more diversity
+        frequency_penalty: 0.6, // Penalize repetition
+        presence_penalty: 0.3, // Encourage new topics
       });
       
       console.log('📥 Groq API Response received');
       
       let aiResponse = completion.choices[0]?.message?.content || 
-        "hey, something's off. try again?";
+        "hey something's weird. try again?";
       
-      // Apply post-processing to simplify and humanize the response
+      // 12. Apply post-processing to humanize response
       aiResponse = promptBuilder.simplifyResponse(aiResponse);
       
-      console.log(`✅ Response generated successfully`);
+      // 13. Check if response is too similar to last response
+      if (lastAssistantMessage && 
+          this.isSimilarResponse(aiResponse, lastAssistantMessage.content)) {
+        console.log('⚠️ Response too similar, regenerating...');
+        // Add variation instruction
+        messages.push({
+          role: "system",
+          content: "Your last response was too similar. Give a completely different response. Be more specific and varied."
+        });
+        
+        const retryCompletion = await groq.chat.completions.create({
+          model: MODEL,
+          messages: messages,
+          temperature: 0.9,
+          max_tokens: 1024,
+          frequency_penalty: 0.8,
+          presence_penalty: 0.5,
+        });
+        
+        aiResponse = retryCompletion.choices[0]?.message?.content || aiResponse;
+        aiResponse = promptBuilder.simplifyResponse(aiResponse);
+      }
       
-      // 12. Save messages to conversation
+      console.log(`✅ Response generated: "${aiResponse}"`);
+      
+      // 14. Save messages to conversation
       await memoryService.saveMessage(userId, sessionId, 'user', userMessage, emotion);
       await memoryService.saveMessage(userId, sessionId, 'assistant', aiResponse);
       
-      // 13. Return response with metadata
+      // 15. Return response with metadata
       return {
         response: aiResponse,
         provider: 'groq',
@@ -121,6 +150,26 @@ class AIService {
         error: error.message
       };
     }
+  }
+
+  // Check if two responses are too similar
+  isSimilarResponse(response1, response2) {
+    if (!response1 || !response2) return false;
+    
+    const normalize = (str) => str.toLowerCase().trim().replace(/[^\w\s]/g, '');
+    const norm1 = normalize(response1);
+    const norm2 = normalize(response2);
+    
+    // Check exact match
+    if (norm1 === norm2) return true;
+    
+    // Check if 80% similar (simple word overlap)
+    const words1 = new Set(norm1.split(/\s+/));
+    const words2 = new Set(norm2.split(/\s+/));
+    const intersection = new Set([...words1].filter(x => words2.has(x)));
+    const similarity = intersection.size / Math.max(words1.size, words2.size);
+    
+    return similarity > 0.8;
   }
 
   // Get diverse, natural greeting based on context
