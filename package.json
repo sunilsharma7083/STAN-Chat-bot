@@ -3,9 +3,9 @@
   "version": "1.0.0",
   "description": "STAN AI Chatbot - Full Stack Application",
   "scripts": {
-    "install-all": "cd backend && npm install && cd ../frontend && npm install",
-    "build": "cd frontend && npm run build",
-    "start": "cd backend && node src/server.js"
+    "install": "npm install --prefix backend && npm install --prefix frontend",
+    "build": "npm install --prefix frontend && npm run build --prefix frontend",
+    "start": "node backend/src/server.js"
   },
   "author": "Sunil Kumar Sharma",
   "license": "MIT",
