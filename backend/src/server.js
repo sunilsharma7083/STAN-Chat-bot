@@ -119,3 +119,6 @@ process.on('SIGINT', () => {
 });
 
 startServer();
+
+// Export for Vercel serverless
+module.exports = app;
