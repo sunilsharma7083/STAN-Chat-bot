@@ -1,0 +1,33 @@
+{
+  "name": "stan-ai-backend",
+  "version": "1.0.0",
+  "description": "Backend for STAN AI conversational chatbot",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js",
+    "test": "jest"
+  },
+  "keywords": [
+    "chatbot",
+    "ai",
+    "conversational-ai",
+    "gemini"
+  ],
+  "author": "Sunil Kumar Sharma",
+  "license": "MIT",
+  "dependencies": {
+    "@google/generative-ai": "^0.21.0",
+    "@huggingface/inference": "^4.13.5",
+    "axios": "^1.13.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.2",
+    "groq-sdk": "^0.37.0",
+    "mongoose": "^8.9.3",
+    "uuid": "^11.0.4"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.9"
+  }
+}
