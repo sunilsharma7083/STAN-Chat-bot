@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>STAN Chatbot - Connection Test</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            max-width: 500px;
+            width: 100%;
+        }
+        
+        h1 {
+            color: #667eea;
+            text-align: center;
+            margin-bottom: 20px;
+            font-size: 24px;
+        }
+        
+        .status {
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            font-weight: 500;
+        }
+        
+        .status.pending {
+            background: #fff3cd;
+            color: #856404;
+        }
+        
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .info {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            font-size: 14px;
+        }
+        
+        .info strong {
+            color: #667eea;
+        }
+        
+        button {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-bottom: 10px;
+            transition: transform 0.2s;
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+        }
+        
+        button:active {
+            transform: translateY(0);
+        }
+        
+        .test-result {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 15px;
+            font-size: 14px;
+            word-wrap: break-word;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .emoji {
+            font-size: 24px;
+            margin-right: 10px;
+        }
+        
+        .small-text {
+            font-size: 12px;
+            color: #6c757d;
+            text-align: center;
+            margin-top: 15px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🤖 STAN Chatbot - Connection Test</h1>
+        
+        <div id="device-info" class="info">
+            <strong>Device:</strong> <span id="device"></span><br>
+            <strong>Browser:</strong> <span id="browser"></span><br>
+            <strong>Screen:</strong> <span id="screen"></span>
+        </div>
+        
+        <div id="status" class="status pending">
+            <span class="emoji">⏳</span>
+            <span id="status-text">Ready to test...</span>
+        </div>
+        
+        <button onclick="testBackendHealth()">🔍 Test Backend Health</button>
+        <button onclick="testChatMessage()">💬 Test Chat Message</button>
+        <button onclick="testFullFlow()">🚀 Test Complete Flow</button>
+        
+        <div id="result" class="test-result" style="display: none;"></div>
+        
+        <div class="small-text">
+            If all tests pass, chatbot will work on this device! ✅
+        </div>
+    </div>
+
+    <script>
+        // Detect device info
+        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+        const deviceType = isMobile ? 'Mobile 📱' : 'Desktop 💻';
+        document.getElementById('device').textContent = deviceType;
+        document.getElementById('browser').textContent = navigator.userAgent.split(' ').pop();
+        document.getElementById('screen').textContent = `${window.innerWidth} x ${window.innerHeight}`;
+
+        // Backend URL (same logic as main app)
+        const isLocalhost = window.location.hostname === 'localhost' || 
+                          window.location.hostname === '127.0.0.1';
+        const BACKEND_URL = isLocalhost ? 
+            'http://localhost:3000' : 
+            'https://stan-chat-bot-backend-f0eh.onrender.com';
+
+        function updateStatus(message, type) {
+            const statusDiv = document.getElementById('status');
+            const statusText = document.getElementById('status-text');
+            statusDiv.className = `status ${type}`;
+            
+            const emoji = type === 'success' ? '✅' : type === 'error' ? '❌' : '⏳';
+            statusText.innerHTML = `<span class="emoji">${emoji}</span>${message}`;
+        }
+
+        function showResult(title, data) {
+            const resultDiv = document.getElementById('result');
+            resultDiv.style.display = 'block';
+            resultDiv.innerHTML = `
+                <strong>${title}</strong><br>
+                <pre style="margin-top: 10px; white-space: pre-wrap;">${JSON.stringify(data, null, 2)}</pre>
+            `;
+        }
+
+        async function testBackendHealth() {
+            updateStatus('Testing backend connection...', 'pending');
+            showResult('Testing...', { url: `${BACKEND_URL}/health` });
+            
+            try {
+                const startTime = Date.now();
+                const response = await fetch(`${BACKEND_URL}/health`);
+                const data = await response.json();
+                const endTime = Date.now();
+                const duration = endTime - startTime;
+                
+                if (data.status === 'ok') {
+                    updateStatus(`Backend is ONLINE! (${duration}ms)`, 'success');
+                    showResult('✅ Health Check Success', {
+                        ...data,
+                        responseTime: `${duration}ms`,
+                        backendUrl: BACKEND_URL
+                    });
+                } else {
+                    updateStatus('Backend responded but with error', 'error');
+                    showResult('⚠️ Unexpected Response', data);
+                }
+            } catch (error) {
+                updateStatus('Cannot connect to backend!', 'error');
+                showResult('❌ Connection Error', {
+                    error: error.message,
+                    backendUrl: BACKEND_URL,
+                    possibleReasons: [
+                        'Backend is down or sleeping (Render free tier)',
+                        'CORS issue',
+                        'Network connectivity problem',
+                        'Wrong backend URL'
+                    ]
+                });
+            }
+        }
+
+        async function testChatMessage() {
+            updateStatus('Sending test message to chatbot...', 'pending');
+            
+            const testMessage = {
+                userId: 'test_user_' + Date.now(),
+                message: 'Hello! This is a test message.',
+                sessionId: 'test_session_' + Date.now()
+            };
+            
+            showResult('Sending...', testMessage);
+            
+            try {
+                const startTime = Date.now();
+                const response = await fetch(`${BACKEND_URL}/chat`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(testMessage)
+                });
+                
+                const data = await response.json();
+                const endTime = Date.now();
+                const duration = endTime - startTime;
+                
+                if (data.response) {
+                    updateStatus(`Chatbot responded! (${duration}ms)`, 'success');
+                    showResult('✅ Chat Test Success', {
+                        botResponse: data.response,
+                        responseTime: `${duration}ms`,
+                        backendUrl: BACKEND_URL
+                    });
+                } else {
+                    updateStatus('Backend responded but no message', 'error');
+                    showResult('⚠️ Incomplete Response', data);
+                }
+            } catch (error) {
+                updateStatus('Failed to send message!', 'error');
+                showResult('❌ Chat Error', {
+                    error: error.message,
+                    backendUrl: BACKEND_URL,
+                    testMessage
+                });
+            }
+        }
+
+        async function testFullFlow() {
+            updateStatus('Running complete test flow...', 'pending');
+            
+            const results = {
+                tests: [],
+                passed: 0,
+                failed: 0,
+                totalTime: 0
+            };
+            
+            // Test 1: Health Check
+            try {
+                const start = Date.now();
+                const health = await fetch(`${BACKEND_URL}/health`);
+                const healthData = await health.json();
+                const time = Date.now() - start;
+                
+                results.tests.push({
+                    name: '🔍 Health Check',
+                    status: healthData.status === 'ok' ? 'PASS ✅' : 'FAIL ❌',
+                    time: `${time}ms`,
+                    data: healthData
+                });
+                
+                if (healthData.status === 'ok') results.passed++;
+                else results.failed++;
+                results.totalTime += time;
+            } catch (error) {
+                results.tests.push({
+                    name: '🔍 Health Check',
+                    status: 'FAIL ❌',
+                    error: error.message
+                });
+                results.failed++;
+            }
+            
+            // Test 2: Chat Message
+            try {
+                const start = Date.now();
+                const chat = await fetch(`${BACKEND_URL}/chat`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        userId: 'test_' + Date.now(),
+                        message: 'Hi',
+                        sessionId: 'session_' + Date.now()
+                    })
+                });
+                const chatData = await chat.json();
+                const time = Date.now() - start;
+                
+                results.tests.push({
+                    name: '💬 Send Message',
+                    status: chatData.response ? 'PASS ✅' : 'FAIL ❌',
+                    time: `${time}ms`,
+                    response: chatData.response?.substring(0, 100) + '...'
+                });
+                
+                if (chatData.response) results.passed++;
+                else results.failed++;
+                results.totalTime += time;
+            } catch (error) {
+                results.tests.push({
+                    name: '💬 Send Message',
+                    status: 'FAIL ❌',
+                    error: error.message
+                });
+                results.failed++;
+            }
+            
+            // Final Result
+            const allPassed = results.failed === 0;
+            updateStatus(
+                allPassed ? 
+                `All tests passed! (${results.totalTime}ms)` : 
+                `${results.failed} test(s) failed`,
+                allPassed ? 'success' : 'error'
+            );
+            
+            showResult('🧪 Complete Test Results', {
+                summary: {
+                    total: results.tests.length,
+                    passed: results.passed,
+                    failed: results.failed,
+                    totalTime: `${results.totalTime}ms`
+                },
+                backendUrl: BACKEND_URL,
+                deviceType,
+                timestamp: new Date().toISOString(),
+                tests: results.tests
+            });
+        }
+
+        // Auto-run health check on load
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                testBackendHealth();
+            }, 500);
+        });
+    </script>
+</body>
+</html>
