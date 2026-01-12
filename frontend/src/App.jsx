@@ -72,10 +72,23 @@ function App() {
     } catch (error) {
       console.error('Failed to send message:', error);
       
+      // Determine error type and show appropriate message
+      let errorMessage = "aw man, something went wrong. ";
+      
+      if (error.message.includes('Network error')) {
+        errorMessage = "hmm can't reach the server. are you online? 📡";
+      } else if (error.message.includes('timeout')) {
+        errorMessage = "server's taking too long to respond. try again in a sec? ⏰";
+      } else if (error.message.includes('Server error')) {
+        errorMessage = "server's having issues. give it a minute? 🔧";
+      } else {
+        errorMessage = "aw man, something went wrong. try again? 🤔";
+      }
+      
       // Show error message in chat
       if (chatRef.current) {
         chatRef.current.addAssistantMessage(
-          "aw man, something went wrong. try again?",
+          errorMessage,
           'neutral'
         );
       }

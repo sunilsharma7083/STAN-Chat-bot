@@ -1,19 +1,55 @@
 import axios from 'axios';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3000';
+// Detect if running on mobile/remote device
+const isLocalhost = () => {
+  return window.location.hostname === 'localhost' || 
+         window.location.hostname === '127.0.0.1' ||
+         window.location.hostname === '';
+};
+
+// Use deployed backend if not on localhost, or env variable if set
+const API_BASE_URL = process.env.REACT_APP_API_URL || 
+                     (isLocalhost() ? 'http://localhost:3000' : 'https://stan-chatbot-backend.onrender.com');
+
+console.log('🌐 API Base URL:', API_BASE_URL);
 
 class ApiService {
   // Send chat message
   async sendMessage(userId, message, sessionId) {
     try {
+      console.log('📤 Sending message:', { userId, message, sessionId });
+      console.log('🌐 API URL:', `${API_BASE_URL}/chat`);
+      
       const response = await axios.post(`${API_BASE_URL}/chat`, {
         userId,
         message,
         sessionId
+      }, {
+        timeout: 30000, // 30 second timeout
+        headers: {
+          'Content-Type': 'application/json'
+        }
       });
+      
+      console.log('✅ Response received:', response.data);
       return response.data;
     } catch (error) {
-      console.error('API Error:', error);
+      console.error('❌ API Error Details:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+        url: error.config?.url
+      });
+      
+      // Provide more specific error messages
+      if (error.code === 'ECONNABORTED') {
+        throw new Error('Request timeout - server is slow or unreachable');
+      } else if (error.response?.status === 500) {
+        throw new Error('Server error - please try again');
+      } else if (error.code === 'ERR_NETWORK' || !error.response) {
+        throw new Error('Network error - check your connection or backend URL');
+      }
+      
       throw error;
     }
   }
