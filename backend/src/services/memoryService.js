@@ -4,25 +4,40 @@ const Conversation = require('../models/Conversation');
 class MemoryService {
   // Retrieve or create user profile
   async getUserProfile(userId) {
-    let user = await User.findOne({ userId });
-    
-    if (!user) {
-      user = new User({
-        userId,
-        profile: {
-          preferredTone: 'casual_friendly',
-          interests: []
-        },
-        memory: {
-          shortTermFacts: [],
-          longTermSummary: '',
-          emotionalContext: 'neutral'
+    try {
+      let user = await User.findOne({ userId });
+      
+      if (!user) {
+        // Try to create new user, but catch duplicate key error
+        try {
+          user = new User({
+            userId,
+            profile: {
+              preferredTone: 'casual_friendly',
+              interests: []
+            },
+            memory: {
+              shortTermFacts: [],
+              longTermSummary: '',
+              emotionalContext: 'neutral'
+            }
+          });
+          await user.save();
+        } catch (saveError) {
+          // If duplicate key error (race condition), fetch existing user
+          if (saveError.code === 11000) {
+            user = await User.findOne({ userId });
+          } else {
+            throw saveError;
+          }
         }
-      });
-      await user.save();
+      }
+      
+      return user;
+    } catch (error) {
+      console.error('Get Memory Error:', error);
+      throw error;
     }
-    
-    return user;
   }
 
   // Update user profile with extracted information
