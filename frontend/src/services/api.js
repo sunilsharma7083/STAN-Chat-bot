@@ -9,7 +9,7 @@ const isLocalhost = () => {
 
 // Use deployed backend if not on localhost, or env variable if set
 const API_BASE_URL = process.env.REACT_APP_API_URL || 
-                     (isLocalhost() ? 'http://localhost:3000' : 'https://stan-chatbot-backend.onrender.com');
+                     (isLocalhost() ? 'http://localhost:3000' : 'https://stan-chat-bot-backend-f0eh.onrender.com');
 
 console.log('🌐 API Base URL:', API_BASE_URL);
 
